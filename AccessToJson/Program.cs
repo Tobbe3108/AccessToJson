@@ -15,10 +15,11 @@ await using var con = new OleDbConnection($"Provider=Microsoft.ACE.OLEDB.12.0;Da
 await con.OpenAsync();
 var tasks = new List<Task>
 {
-    ReadModelToFile<TabBatch>(con),
-    ReadModelToFile<TabFejl>(con),
-    ReadModelToFile<TabRulle>(con),
-    ReadModelToFile<TblLevering>(con)
+    // ReadModelToFile<TabBatch>(con),
+    // ReadModelToFile<TabFejl>(con),
+    // ReadModelToFile<TabRulle>(con),
+    // ReadModelToFile<TblLevering>(con),
+    ReadModelToFile<TabMedarbejder>(con)
 };
 await Task.WhenAll(tasks);
 await con.CloseAsync();
