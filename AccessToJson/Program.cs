@@ -17,7 +17,8 @@ var tasks = new List<Task>
 {
     ReadModelToFile<TabBatch>(con),
     ReadModelToFile<TabFejl>(con),
-    ReadModelToFile<TabRulle>(con)
+    ReadModelToFile<TabRulle>(con),
+    ReadModelToFile<TblLevering>(con)
 };
 await Task.WhenAll(tasks);
 await con.CloseAsync();
