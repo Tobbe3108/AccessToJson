@@ -8,14 +8,14 @@ using Newtonsoft.Json;
 var configurationRoot = new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("./appsettings.json").Build();
 var databasePath = configurationRoot["DatabasePath"];
-var medarbejderDatabasePath = configurationRoot["MedarbejderDatabasePath"];
+// var medarbejderDatabasePath = configurationRoot["MedarbejderDatabasePath"];
 var outputPath = configurationRoot["OutputPath"];
 new DirectoryInfo(outputPath).Create();
 
 await using var con = new OleDbConnection($"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={databasePath};");
 await con.OpenAsync();
-await using var medCon = new OleDbConnection($"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={medarbejderDatabasePath};");
-await medCon.OpenAsync();
+// await using var medCon = new OleDbConnection($"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={medarbejderDatabasePath};");
+// await medCon.OpenAsync();
 
 var tasks = new List<Task>
 {
@@ -23,7 +23,7 @@ var tasks = new List<Task>
     ReadModelToFile<TabFejl>(con),
     ReadModelToFile<TabRulle>(con),
     ReadModelToFile<TblLevering>(con),
-    ReadModelToFile<TabMedarbejder>(medCon)
+    // ReadModelToFile<TabMedarbejder>(medCon)
 };
 await Task.WhenAll(tasks);
 await con.CloseAsync();
