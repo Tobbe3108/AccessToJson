@@ -60,14 +60,20 @@ catch (Exception e)
     try
     {
         Console.WriteLine("Sending email");
-        Process.Start(mailCmdPath);
-        Console.WriteLine("email sent");
+        var processInfo = new ProcessStartInfo(mailCmdPath)
+        {
+            WorkingDirectory = new FileInfo(mailCmdPath).DirectoryName
+        };
+        var processStart = Process.Start(processInfo);
+        await processStart!.WaitForExitAsync();
+        Console.WriteLine("Email sent");
     }
     catch (Exception ex)
     {
         Console.WriteLine(ex);
         Environment.Exit(0);
     }
+
     Environment.Exit(0);
 }
 
