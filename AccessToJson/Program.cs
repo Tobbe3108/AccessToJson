@@ -1,6 +1,7 @@
 ﻿using System.Data;
 using System.Data.OleDb;
 using System.Diagnostics;
+using System.Diagnostics.Tracing;
 using AccessToJson;
 using Dapper;
 using Microsoft.Extensions.Configuration;
@@ -56,7 +57,11 @@ try
 }
 catch (Exception)
 {
-    Process.Start(mailCmdPath);
+    var info = new ProcessStartInfo(mailCmdPath)
+    {
+        UseShellExecute = true
+    };
+    Process.Start(info);
 }
 
 async Task ReadModelToFile<T>(IDbConnection oleDbConnection)
