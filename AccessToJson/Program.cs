@@ -1,7 +1,6 @@
 ﻿using System.Data;
 using System.Data.OleDb;
 using System.Diagnostics;
-using System.Diagnostics.Tracing;
 using AccessToJson;
 using Dapper;
 using Microsoft.Extensions.Configuration;
@@ -60,12 +59,9 @@ catch (Exception e)
     Console.WriteLine(e);
     try
     {
-        var info = new ProcessStartInfo(mailCmdPath)
-        {
-            UseShellExecute = true
-        };
         Console.WriteLine("Sending email");
-        Process.Start(info);
+        Process.Start(mailCmdPath);
+        Console.WriteLine("email sent");
     }
     catch (Exception ex)
     {
