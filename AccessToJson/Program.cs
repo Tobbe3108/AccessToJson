@@ -55,13 +55,24 @@ try
     Console.WriteLine("All done!");
     Environment.Exit(0);
 }
-catch (Exception)
+catch (Exception e)
 {
-    var info = new ProcessStartInfo(mailCmdPath)
+    Console.WriteLine(e);
+    try
     {
-        UseShellExecute = true
-    };
-    Process.Start(info);
+        var info = new ProcessStartInfo(mailCmdPath)
+        {
+            UseShellExecute = true
+        };
+        Console.WriteLine("Sending email");
+        Process.Start(info);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(ex);
+        Environment.Exit(0);
+    }
+    Environment.Exit(0);
 }
 
 async Task ReadModelToFile<T>(IDbConnection oleDbConnection)
