@@ -1,4 +1,6 @@
-﻿using System.Data;
+﻿#pragma warning disable CA1416
+
+using System.Data;
 using System.Data.OleDb;
 using System.Diagnostics;
 using AccessToJson;
@@ -6,90 +8,79 @@ using Dapper;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 
-string outputPath;
-string mailCmdPath = null!;
+var configuration = new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory())
+  .AddJsonFile("./appsettings.json")
+  .Build();
+
+var databaseOptions = configuration.Get<DatabaseOptions>();
+ArgumentNullException.ThrowIfNull(databaseOptions?.MailCmdPath, "mailCmdPath is not set in appSettings");
 
 try
 {
-    var configurationRoot = new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory())
-        .AddJsonFile("./appsettings.json")
-        .Build();
+  var tasks = new List<Task>();
+  var connections = new List<OleDbConnection>();
 
-    var databasePath = configurationRoot["DatabasePath"];
-    var medarbejderDatabasePath = configurationRoot["MedarbejderDatabasePath"];
-    outputPath = configurationRoot["OutputPath"];
-    mailCmdPath = configurationRoot["MailCmdPath"];
+  ArgumentNullException.ThrowIfNull(databaseOptions.Databases, "Databases is not set in appSettings");
+  foreach (var database in databaseOptions.Databases)
+  {
+    ArgumentNullException.ThrowIfNull(database.ConnectionString,
+      "ConnectionString is not set for database in appSettings");
+    ArgumentNullException.ThrowIfNull(database.OutputPath, "OutputPath is not set for database in appSettings");
 
-    ArgumentNullException.ThrowIfNull(databasePath, "databasePath is not set in appSettings");
-    ArgumentNullException.ThrowIfNull(medarbejderDatabasePath, "medarbejderDatabasePath is not set in appSettings");
-    ArgumentNullException.ThrowIfNull(outputPath, "outputPath is not set in appSettings");
-    ArgumentNullException.ThrowIfNull(mailCmdPath, "mailCmdPath is not set in appSettings");
+    if (Directory.Exists(database.OutputPath) is false) Directory.CreateDirectory(database.OutputPath);
 
-    new DirectoryInfo(outputPath).Create();
+    var connection = new OleDbConnection(database.ConnectionString);
+    connections.Add(connection);
 
-    await using var con = new OleDbConnection($"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={databasePath};");
-    await using var medCon =
-        new OleDbConnection($"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={medarbejderDatabasePath};");
+    await connection.OpenAsync();
 
-    var conOpenTask = con.OpenAsync();
-    var medConOpenTask = medCon.OpenAsync();
-    await conOpenTask;
-    await medConOpenTask;
+    ArgumentNullException.ThrowIfNull(database.Tables, "Tables is not set for database in appSettings");
+    tasks.AddRange(database.Tables.Select(tableName => ReadModelToFile(connection, tableName, database.OutputPath)));
+  }
 
-    var tasks = new List<Task>
-    {
-        ReadModelToFile<TabBatch>(con),
-        ReadModelToFile<TabFejl>(con),
-        ReadModelToFile<TabRulle>(con),
-        ReadModelToFile<TblLevering>(con),
-        ReadModelToFile<TabMedarbejder>(medCon)
-    };
-    await Task.WhenAll(tasks);
+  Console.WriteLine("Waiting for tasks to complete");
+  await Task.WhenAll(tasks);
 
-    var conCloseTask = con.CloseAsync();
-    var medConCloseTask = medCon.CloseAsync();
-    await conCloseTask;
-    await medConCloseTask;
+  Console.WriteLine("Closing connections");
+  await Task.WhenAll(connections.Select(connection => connection.CloseAsync()));
 
-    Console.WriteLine("All done!");
-    Environment.Exit(0);
+  Console.WriteLine("All done!");
 }
 catch (Exception e)
 {
-    Console.WriteLine(e);
-    try
+  Console.WriteLine(e);
+  try
+  {
+    Console.WriteLine("Sending email");
+    var processInfo = new ProcessStartInfo(databaseOptions.MailCmdPath)
     {
-        Console.WriteLine("Sending email");
-        var processInfo = new ProcessStartInfo(mailCmdPath)
-        {
-            WorkingDirectory = new FileInfo(mailCmdPath).DirectoryName
-        };
-        var processStart = Process.Start(processInfo);
-        await processStart!.WaitForExitAsync();
-        Console.WriteLine("Email sent");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine(ex);
-        Environment.Exit(0);
-    }
-
-    Environment.Exit(0);
-}
-
-async Task ReadModelToFile<T>(IDbConnection oleDbConnection)
-{
-    var dataTask = oleDbConnection.QueryAsync<T>($"select * from {typeof(T).Name}");
-
-    Console.WriteLine($"Exporting {typeof(T).Name}");
-    var data = (await dataTask).ToList();
-    Console.WriteLine($"Found {data.Count} rows in {typeof(T).Name}");
-
-    var filePath = Path.Combine(outputPath, $"{typeof(T).Name}.json");
-    await using var file = File.CreateText(filePath);
-    var serializer = new JsonSerializer
-    {
-        DateFormatString = "dd-MM-yyyy HH:mm:ss", Converters = { new StringJsonConverter() }
+      WorkingDirectory = new FileInfo(databaseOptions.MailCmdPath).DirectoryName
     };
-    serializer.Serialize(file, new Dictionary<string, List<T>> { { typeof(T).Name, data } });
+    var processStart = Process.Start(processInfo);
+    await processStart!.WaitForExitAsync();
+    Console.WriteLine("Email sent");
+  }
+  catch (Exception ex)
+  {
+    Console.WriteLine(ex);
+  }
 }
+
+async Task ReadModelToFile(IDbConnection oleDbConnection, string tableName, string outputPath)
+{
+  var dataTask = oleDbConnection.QueryAsync<dynamic>($"select * from {tableName}");
+
+  Console.WriteLine($"Exporting {tableName}");
+  var data = (await dataTask).ToList();
+  Console.WriteLine($"Found {data.Count} rows in {tableName}");
+
+  var filePath = Path.Combine(outputPath, $"{tableName}.json");
+  await using var file = File.CreateText(filePath);
+  var serializer = new JsonSerializer
+  {
+    DateFormatString = "dd-MM-yyyy HH:mm:ss", Converters = { new StringJsonConverter() }
+  };
+  serializer.Serialize(file, new Dictionary<string, List<dynamic>> { { tableName, data } });
+}
+
+#pragma warning restore CA1416
