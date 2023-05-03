@@ -1,6 +1,7 @@
 ﻿#pragma warning disable CA1416
 
 using System.Data;
+using System.Data.Common;
 using System.Data.OleDb;
 using System.Diagnostics;
 using AccessToJson;
@@ -66,21 +67,30 @@ catch (Exception e)
   }
 }
 
-async Task ReadModelToFile(IDbConnection oleDbConnection, string tableName, string outputPath)
+async Task ReadModelToFile(DbConnection oleDbConnection, string tableName, string outputPath)
 {
+  var databaseName = GetDatabaseName(oleDbConnection);
+
   var dataTask = oleDbConnection.QueryAsync<dynamic>($"select * from {tableName}");
 
-  Console.WriteLine($"Exporting {tableName}");
+  Console.WriteLine($"Exporting {databaseName}_{tableName}");
   var data = (await dataTask).ToList();
-  Console.WriteLine($"Found {data.Count} rows in {tableName}");
+  Console.WriteLine($"Found {data.Count} rows in {databaseName}_{tableName}");
 
-  var filePath = Path.Combine(outputPath, $"{tableName}.json");
+  var filePath = Path.Combine(outputPath, $"{databaseName}_{tableName}.json");
   await using var file = File.CreateText(filePath);
   var serializer = new JsonSerializer
   {
     DateFormatString = "dd-MM-yyyy HH:mm:ss", Converters = { new StringJsonConverter() }
   };
   serializer.Serialize(file, new Dictionary<string, List<dynamic>> { { tableName, data } });
+}
+
+string GetDatabaseName(DbConnection dbConnection)
+{
+  var dataSource = dbConnection.DataSource;
+  var databaseName = dataSource.Split('\\').Last().Split('.').First();
+  return databaseName;
 }
 
 #pragma warning restore CA1416
